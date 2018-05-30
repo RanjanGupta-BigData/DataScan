@@ -316,7 +316,7 @@ class DataScan(xr.DataArray):
 
         Returns
         -------
-        : float
+        bandwidth : float
             The total signal bandwidth.
         """
         if self.ndim > 1:
@@ -526,7 +526,7 @@ class DataScan(xr.DataArray):
 
         Returns
         -------
-        : ultron.DataScan
+        cscan : DataScan
             The computed C-scan.
         """
         if theta is None:

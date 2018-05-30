@@ -1,0 +1,352 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>DataScan - A library for easy handling of ultrasound scan data for NDE &#8212; DataScan 0.1 documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    './',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" /> 
+  </head>
+  <body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="#">DataScan 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="datascan-a-library-for-easy-handling-of-ultrasound-scan-data-for-nde">
+<h1>DataScan - A library for easy handling of ultrasound scan data for NDE<a class="headerlink" href="#datascan-a-library-for-easy-handling-of-ultrasound-scan-data-for-nde" title="Permalink to this headline">¶</a></h1>
+<p>This library extends <cite>xarray</cite> to provide easy functionality for signal processing and data reshaping.</p>
+<dl class="class">
+<dt id="DataScan.DataScan">
+<em class="property">class </em><code class="descclassname">DataScan.</code><code class="descname">DataScan</code><span class="sig-paren">(</span><em>data</em>, <em>coords=None</em>, <em>dims=None</em>, <em>name=None</em>, <em>attrs=None</em>, <em>encoding=None</em>, <em>fastpath=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DataScan/datascan.html#DataScan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#DataScan.DataScan" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="method">
+<dt id="DataScan.DataScan.bandwidth">
+<code class="descname">bandwidth</code><span class="sig-paren">(</span><em>threshold=None</em>, <em>nfft=None</em>, <em>smoothing=False</em>, <em>win_len=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DataScan/datascan.html#DataScan.bandwidth"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#DataScan.DataScan.bandwidth" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the bandwidth of the signal by finding the range of frequencies
+where the signal is above a given threshold.</p>
+<dl class="docutils">
+<dt>threshold <span class="classifier-delimiter">:</span> <span class="classifier">float, optional, (0.0, 1.0]</span></dt>
+<dd>The normalized threshold for which to compute the bandwidth. If this is not
+specified, the threshold is set to the root mean square value of the signal.</dd>
+<dt>nfft <span class="classifier-delimiter">:</span> <span class="classifier">bool, optional</span></dt>
+<dd>Since this computation is based on the Fourier transform, indicate the number of
+points to be used on computing the FFT.</dd>
+</dl>
+<dl class="docutils">
+<dt>bandwidth <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd>The total signal bandwidth.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="DataScan.DataScan.cscan">
+<code class="descname">cscan</code><span class="sig-paren">(</span><em>theta=None</em>, <em>mode='max'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DataScan/datascan.html#DataScan.cscan"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#DataScan.DataScan.cscan" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specialized method for computing the C-Scans from Ultrasound Testing raster scans. This
+collapses the time axis and provides a top view of the scan, along the <em>x-y</em> axes.</p>
+<dl class="docutils">
+<dt>theta <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd>The angle for which to skew the scan. This should be the wave propagation angle. The
+c-scan will be the top view after skew by the given angle.</dd>
+</dl>
+<dl class="docutils">
+<dt>cscan <span class="classifier-delimiter">:</span> <span class="classifier">DataScan</span></dt>
+<dd>The computed C-scan.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="DataScan.DataScan.fft">
+<code class="descname">fft</code><span class="sig-paren">(</span><em>shape=None</em>, <em>dims=None</em>, <em>axes=None</em>, <em>ssb=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DataScan/datascan.html#DataScan.fft"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#DataScan.DataScan.fft" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the Discrete Fourier transform along a specified dimension or axis. The FFT is
+computed along the requested axis only if the axis labels are uniformly sampled.</p>
+<dl class="docutils">
+<dt>shape <span class="classifier-delimiter">:</span> <span class="classifier">int, array_like, optional</span></dt>
+<dd>The size of the fft. If not specified, the current size of the axis is taken.</dd>
+<dt>dims <span class="classifier-delimiter">:</span> <span class="classifier">str, array_like, optional</span></dt>
+<dd>A string or array of strings giving the names of the dimensions along which to
+compute the Fourier transform.</dd>
+<dt>axes <span class="classifier-delimiter">:</span> <span class="classifier">int, array_like, optional</span></dt>
+<dd>The axes numbers along which to compute the FFT. Note that only one of <cite>axes</cite> and
+<cite>dims</cite> can be specified.</dd>
+<dt>ssb <span class="classifier-delimiter">:</span> <span class="classifier">bool, optional</span></dt>
+<dd>Determines if only the single sided Fourier transform will be returned.</dd>
+</dl>
+<dl class="docutils">
+<dt>: DataScan</dt>
+<dd>A new signal representing the Fourier transform.</dd>
+</dl>
+<p>Keyword arguments can be given to the the underlying Fourier transform function
+<code class="xref py py-func docutils literal"><span class="pre">scipy.fftpack.fft2()</span></code>.</p>
+<p>The returned FFT values are shifted so that the axes labels are monotonous, i.e. running
+from negative frequencies up to positive frequencies. This is different from the usual
+way an FFT solution is returned.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="DataScan.DataScan.frequency">
+<code class="descname">frequency</code><span class="sig-paren">(</span><em>option='center'</em>, <em>threshold=None</em>, <em>nfft=None</em>, <em>smoothing=False</em>, <em>win_len=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DataScan/datascan.html#DataScan.frequency"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#DataScan.DataScan.frequency" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the center or peak frequency of the signal. Only for 1-D arrays.</p>
+<dl class="docutils">
+<dt>option <span class="classifier-delimiter">:</span> <span class="classifier">str, {‘center’, ‘peak’}</span></dt>
+<dd>Specify whether to compute the center or peak frequency of the signal.</dd>
+<dt>threshold <span class="classifier-delimiter">:</span> <span class="classifier">float, optional, (0.0, 1.0]</span></dt>
+<dd>Threshold value indicating the noise floor level. Default value is the root mean
+square. Only required if option = ‘center’.</dd>
+<dt>nfft <span class="classifier-delimiter">:</span> <span class="classifier">bool, optional</span></dt>
+<dd>Since this computation is based on the Fourier transform, indicate the number of
+points to be used on computing the FFT.</dd>
+</dl>
+<dl class="docutils">
+<dt>: float</dt>
+<dd>The value of the center frequency.</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="DataScan.DataScan.fs">
+<code class="descname">fs</code><a class="headerlink" href="#DataScan.DataScan.fs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the sampling frequency.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="DataScan.DataScan.limits">
+<code class="descname">limits</code><span class="sig-paren">(</span><em>threshold=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DataScan/datascan.html#DataScan.limits"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#DataScan.DataScan.limits" title="Permalink to this definition">¶</a></dt>
+<dd><p>Computes the index limits where the signal first goes above a given threshold,
+and where it last goes below this threshold. Linear interpolation is used to find the
+exact point for this crossing.</p>
+<dl class="docutils">
+<dt>threshold <span class="classifier-delimiter">:</span> <span class="classifier">float, optional, (0.0, 1.0]</span></dt>
+<dd>Normalized value where the signal first rises above and last falls below. If no value is
+specified, the default is the root mean square of the signal.</dd>
+</dl>
+<dl class="docutils">
+<dt>start_index, end_index (tuple (2,)):</dt>
+<dd>A two element tuple representing the <em>start_index</em> and <em>end_index</em> of the signal.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="DataScan.DataScan.operate">
+<code class="descname">operate</code><span class="sig-paren">(</span><em>opts</em>, <em>dim=None</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DataScan/datascan.html#DataScan.operate"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#DataScan.DataScan.operate" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the signal according to a given option.</p>
+<dl class="docutils">
+<dt>opts <span class="classifier-delimiter">:</span> <span class="classifier">string/char, optional</span></dt>
+<dd><p class="first">The possible options are (combined options are allowed):</p>
+<blockquote class="last">
+<div><table border="1" class="docutils">
+<colgroup>
+<col width="34%" />
+<col width="66%" />
+</colgroup>
+<thead valign="bottom">
+<tr class="row-odd"><th class="head"><em>option</em></th>
+<th class="head">Meaning</th>
+</tr>
+</thead>
+<tbody valign="top">
+<tr class="row-even"><td>‘’ <em>(Default)</em></td>
+<td>Return the raw signal</td>
+</tr>
+<tr class="row-odd"><td>‘n’</td>
+<td>normalized signal</td>
+</tr>
+<tr class="row-even"><td>‘d’</td>
+<td>decibel value</td>
+</tr>
+<tr class="row-odd"><td>‘e’</td>
+<td>compute the signal envelop</td>
+</tr>
+</tbody>
+</table>
+</div></blockquote>
+</dd>
+<dt>dim <span class="classifier-delimiter">:</span> <span class="classifier">str, optional</span></dt>
+<dd>Only used in the case option specified ‘e’ for envelop. Specifies along which axis to
+compute the envelop. if not specified, it will take the first dimension by default.</dd>
+</dl>
+<dl class="docutils">
+<dt>: DataScan</dt>
+<dd>The modified DataScan.</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="DataScan.DataScan.peaks">
+<code class="descname">peaks</code><span class="sig-paren">(</span><em>dim</em>, <em>threshold=0.1</em>, <em>min_dist=None</em>, <em>by_envelop=False</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DataScan/datascan.html#DataScan.peaks"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#DataScan.DataScan.peaks" title="Permalink to this definition">¶</a></dt>
+<dd><p>This is a 1D function that can be applied to a multidimensional array along a single
+dimension. Finds the peaks by taking its first order difference. By using <em>threshold</em> and
+<em>min_dist</em> parameters, it is possible to reduce the number of detected peaks.</p>
+<dl class="docutils">
+<dt>threshold <span class="classifier-delimiter">:</span> <span class="classifier">float, [0., 1.]</span></dt>
+<dd>Normalized threshold. Only the peaks with amplitude higher than the
+threshold will be detected.</dd>
+<dt>min_dist <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd>The minimum distance in index units between ech detected peak. The peak with the highest
+amplitude is preferred to satisfy this constraint.</dd>
+<dt>by_envelop <span class="classifier-delimiter">:</span> <span class="classifier">bool</span></dt>
+<dd>Compute the peaks of the signal based on its envelop.</dd>
+</dl>
+<dl class="docutils">
+<dt>: ndarray</dt>
+<dd>Array containing the indexes of the peaks that were detected</dd>
+</dl>
+<p>This method is adapted from the peak detection method in
+[PeakUtils](<a class="reference external" href="http://pythonhosted.org/PeakUtils/">http://pythonhosted.org/PeakUtils/</a>)</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="DataScan.DataScan.segment">
+<code class="descname">segment</code><span class="sig-paren">(</span><em>threshold</em>, <em>pulse_width</em>, <em>dim=None</em>, <em>min_dist=None</em>, <em>holdoff=None</em>, <em>win_fcn='boxcar'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DataScan/datascan.html#DataScan.segment"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#DataScan.DataScan.segment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Segments the signal into a collection of signals, with each item in the collection,
+representing the signal within a given time window. This is usually useful to
+automate the extraction of multiple resolvable echoes.</p>
+<dl class="docutils">
+<dt>threshold <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd>A threshold value (in dB). Search for echoes will be only for signal values
+above this given threshold. Note that the maximum threshold is 0 dB, since
+the signal will be normalized by its maximum before searching for echoes.</dd>
+<dt>pulse_width <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd>The expected pulse_width. This should have the same units as the units of the Signal
+index. If this is not known exactly, it is generally better to specify this
+parameter to be slightly larger than the actual pulse_width.</dd>
+<dt>min_dist <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd>The minimum distance between the peaks of the segmented signals.</dd>
+<dt>holdoff <span class="classifier-delimiter">:</span> <span class="classifier">float, optional</span></dt>
+<dd>The minimum index for which to extract a segment from the signal.</dd>
+<dt>win_fcn <span class="classifier-delimiter">:</span> <span class="classifier">string, array_like</span></dt>
+<dd>The window type that will be used to window each extracted segment (or echo). See
+<code class="xref py py-func docutils literal"><span class="pre">scipy.signal.get_window()</span></code> for a complete list of available windows,
+and how to pass extra parameters for a specific window type, if needed.</dd>
+</dl>
+<blockquote>
+<div>: list
+A list with elements of type <code class="xref py py-class docutils literal"><span class="pre">Signal</span></code>. Each Signal element represents an
+extracted segment.</div></blockquote>
+</dd></dl>
+
+<dl class="method">
+<dt id="DataScan.DataScan.skew">
+<code class="descname">skew</code><span class="sig-paren">(</span><em>angle</em>, <em>dim</em>, <em>other_dim=None</em>, <em>**kwargs</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DataScan/datascan.html#DataScan.skew"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#DataScan.DataScan.skew" title="Permalink to this definition">¶</a></dt>
+<dd><p>Applied a skew transformation on the data. Currently, we support skew along a single
+dimension only.</p>
+<dl class="docutils">
+<dt>angle <span class="classifier-delimiter">:</span> <span class="classifier">float</span></dt>
+<dd>The angle to skew the coordinates in degrees.</dd>
+<dt>dim <span class="classifier-delimiter">:</span> <span class="classifier">integer, str</span></dt>
+<dd>The dimension along which to skew.</dd>
+<dt>other_dim <span class="classifier-delimiter">:</span> <span class="classifier">integer, str</span></dt>
+<dd>The second dimension which forms the plane for which to apply the skew.
+This argument is optional only for 2-dimensional arrays. Otherwise it should
+always be specified.</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="DataScan.DataScan.ts">
+<code class="descname">ts</code><a class="headerlink" href="#DataScan.DataScan.ts" title="Permalink to this definition">¶</a></dt>
+<dd><p>Compute the mean sampling interval for each coordinate.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="DataScan.DataScan.window">
+<code class="descname">window</code><span class="sig-paren">(</span><em>dim=None</em>, <em>index1=None</em>, <em>index2=None</em>, <em>win_fcn='boxcar'</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/DataScan/datascan.html#DataScan.window"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#DataScan.DataScan.window" title="Permalink to this definition">¶</a></dt>
+<dd><p>Applies a window to the signal within a given time range. Currently only supports 1-D
+windows.</p>
+<dl class="docutils">
+<dt>index1 <span class="classifier-delimiter">:</span> <span class="classifier">float or int, optional</span></dt>
+<dd>The start index/position of the window. Default value is minimum of index.</dd>
+<dt>index2 <span class="classifier-delimiter">:</span> <span class="classifier">float or int, optional</span></dt>
+<dd>The end index/position of the window. Default value is maximum of index.</dd>
+<dt>win_fcn <span class="classifier-delimiter">:</span> <span class="classifier">string/float/tuple, optional</span></dt>
+<dd>The type of window to create. See the function
+<code class="xref py py-func docutils literal"><span class="pre">scipy.signal.get_window()</span></code> for a complete list of
+available windows, and how to pass extra parameters for a
+specific window function.</dd>
+</dl>
+<dl class="docutils">
+<dt>Signal:</dt>
+<dd>The windowed Signal signal.</dd>
+</dl>
+<blockquote>
+<div>If the window requires no parameters, then <cite>win_fcn</cite> can be a string.
+If the window requires parameters, then <cite>win_fcn</cite> must be a tuple
+with the first argument the string name of the window, and the next
+arguments the needed parameters. If <cite>win_fcn</cite> is a floating point
+number, it is interpreted as the beta parameter of the kaiser window.</div></blockquote>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></li>
+<li><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></li>
+<li><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></li>
+</ul>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="#">DataScan 0.1 documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2018, Gerges Dib.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.6.6.
+    </div>
+  </body>
+</html>

@@ -1,0 +1,724 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>DataScan.datascan &#8212; DataScan 0.1 documentation</title>
+    <link rel="stylesheet" href="../../_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+  </head>
+  <body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">DataScan 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for DataScan.datascan</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">scipy.fftpack</span> <span class="k">import</span> <span class="n">fftn</span><span class="p">,</span> <span class="n">fftshift</span><span class="p">,</span> <span class="n">fftfreq</span>
+<span class="kn">import</span> <span class="nn">xarray</span> <span class="k">as</span> <span class="nn">xr</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">from</span> <span class="nn">scipy.signal</span> <span class="k">import</span> <span class="n">hilbert</span><span class="p">,</span> <span class="n">get_window</span><span class="p">,</span> <span class="n">medfilt</span>
+<span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="k">import</span> <span class="n">griddata</span><span class="p">,</span> <span class="n">InterpolatedUnivariateSpline</span> <span class="k">as</span> <span class="n">ius</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="k">import</span> <span class="n">OrderedDict</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+
+
+<div class="viewcode-block" id="DataScan"><a class="viewcode-back" href="../../index.html#DataScan.DataScan">[docs]</a><span class="k">class</span> <span class="nc">DataScan</span><span class="p">(</span><span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">):</span>
+<div class="viewcode-block" id="DataScan.fft"><a class="viewcode-back" href="../../index.html#DataScan.DataScan.fft">[docs]</a>    <span class="k">def</span> <span class="nf">fft</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ssb</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes the Discrete Fourier transform along a specified dimension or axis. The FFT is</span>
+<span class="sd">        computed along the requested axis only if the axis labels are uniformly sampled.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        shape : int, array_like, optional</span>
+<span class="sd">            The size of the fft. If not specified, the current size of the axis is taken.</span>
+
+<span class="sd">        dims : str, array_like, optional</span>
+<span class="sd">            A string or array of strings giving the names of the dimensions along which to</span>
+<span class="sd">            compute the Fourier transform.</span>
+
+<span class="sd">        axes : int, array_like, optional</span>
+<span class="sd">            The axes numbers along which to compute the FFT. Note that only one of `axes` and</span>
+<span class="sd">            `dims` can be specified.</span>
+
+<span class="sd">        ssb : bool, optional</span>
+<span class="sd">            Determines if only the single sided Fourier transform will be returned.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        : DataScan</span>
+<span class="sd">            A new signal representing the Fourier transform.</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        Keyword arguments can be given to the the underlying Fourier transform function</span>
+<span class="sd">        :func:`scipy.fftpack.fft2`.</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">        The returned FFT values are shifted so that the axes labels are monotonous, i.e. running</span>
+<span class="sd">        from negative frequencies up to positive frequencies. This is different from the usual</span>
+<span class="sd">        way an FFT solution is returned.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dims</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">axes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Cannot have both &quot;dims&quot; amd &quot;axes&quot; to be specified.&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dims</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">axes</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">axes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_axis_num</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dims</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">axes</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_axis_num</span><span class="p">(</span><span class="n">dims</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="s1">&#39;__len__&#39;</span><span class="p">):</span>
+            <span class="n">axes</span> <span class="o">=</span> <span class="p">[</span><span class="n">axes</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="s1">&#39;__len__&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">shape</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">shape</span> <span class="o">=</span> <span class="p">[</span><span class="n">shape</span><span class="p">]</span>
+
+        <span class="c1"># get coordinates</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">indexes</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+
+        <span class="c1"># first check if the data is uniformly sampled across the requested axes</span>
+        <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">:</span>
+            <span class="n">mean_fs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="n">ax</span><span class="p">]))</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="n">ax</span><span class="p">],</span> <span class="mi">2</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="n">mean_fs</span><span class="o">/</span><span class="mi">5</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Axes used for FFT should be uniformed sampled.&#39;</span><span class="p">)</span>
+
+        <span class="n">Y</span> <span class="o">=</span> <span class="n">fftshift</span><span class="p">(</span><span class="n">fftn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">shape</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="n">axes</span><span class="p">),</span> <span class="n">axes</span><span class="o">=</span><span class="n">axes</span><span class="p">)</span>
+
+        <span class="c1"># compute the axes values</span>
+        <span class="k">for</span> <span class="n">ax</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">:</span>
+            <span class="n">coords</span><span class="p">[</span><span class="n">ax</span><span class="p">]</span> <span class="o">=</span> <span class="n">fftshift</span><span class="p">(</span><span class="n">fftfreq</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="n">ax</span><span class="p">])</span> <span class="k">if</span> <span class="n">shape</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">shape</span><span class="p">[</span><span class="n">ax</span><span class="p">],</span>
+                                          <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="n">ax</span><span class="p">]))))</span>
+        <span class="n">ds</span> <span class="o">=</span> <span class="n">DataScan</span><span class="p">(</span><span class="n">Y</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">coords</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+
+        <span class="c1"># compute the single side band</span>
+        <span class="k">if</span> <span class="n">ssb</span><span class="p">:</span>
+            <span class="n">ssb_coords</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> <span class="n">coords</span><span class="p">[</span><span class="n">i</span><span class="p">][</span><span class="n">coords</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">axes</span><span class="p">}</span>
+            <span class="n">ds</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="o">**</span><span class="n">ssb_coords</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ds</span></div>
+
+    <span class="k">def</span> <span class="nf">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Re-indexes a specified dimension using interpolation.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        values : array_like, slice</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unknown dim specified.&#39;</span><span class="p">)</span>
+
+        <span class="n">ds</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">indexers</span><span class="o">=</span><span class="p">{</span><span class="n">dim</span><span class="p">:</span> <span class="n">values</span><span class="p">})</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_axis_num</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">ius</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim</span><span class="p">],</span> <span class="n">x</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)(</span><span class="n">values</span><span class="p">),</span>
+                                <span class="n">ax</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="bp">self</span><span class="p">))</span>
+        <span class="n">ds</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">b</span>
+        <span class="k">return</span> <span class="n">ds</span>
+        <span class="c1">#print(ds)</span>
+        <span class="c1"># if hasattr(key, &#39;__len__&#39;):</span>
+        <span class="c1">#     return Signal(self._interp_fnc(key), index=key)</span>
+
+<div class="viewcode-block" id="DataScan.operate"><a class="viewcode-back" href="../../index.html#DataScan.DataScan.operate">[docs]</a>    <span class="k">def</span> <span class="nf">operate</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">opts</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Returns the signal according to a given option.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        opts : string/char, optional</span>
+<span class="sd">            The possible options are (combined options are allowed):</span>
+
+<span class="sd">             +--------------------+--------------------------------------+</span>
+<span class="sd">             | *option*           | Meaning                              |</span>
+<span class="sd">             +====================+======================================+</span>
+<span class="sd">             | &#39;&#39; *(Default)*     | Return the raw signal                |</span>
+<span class="sd">             +--------------------+--------------------------------------+</span>
+<span class="sd">             | &#39;n&#39;                | normalized signal                    |</span>
+<span class="sd">             +--------------------+--------------------------------------+</span>
+<span class="sd">             | &#39;d&#39;                | decibel value                        |</span>
+<span class="sd">             +--------------------+--------------------------------------+</span>
+<span class="sd">             | &#39;e&#39;                | compute the signal envelop           |</span>
+<span class="sd">             +--------------------+--------------------------------------+</span>
+
+<span class="sd">        dim : str, optional</span>
+<span class="sd">            Only used in the case option specified &#39;e&#39; for envelop. Specifies along which axis to</span>
+<span class="sd">            compute the envelop. if not specified, it will take the first dimension by default.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        : DataScan</span>
+<span class="sd">            The modified DataScan.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">yout</span> <span class="o">=</span> <span class="bp">self</span>
+
+        <span class="k">if</span> <span class="n">dim</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">axis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_axis_num</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">axis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_axis_num</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="s1">&#39;e&#39;</span> <span class="ow">in</span> <span class="n">opts</span><span class="p">:</span>
+            <span class="c1"># make hilbert transform faster by computing it at powers of 2</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="mi">2</span><span class="o">**</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log2</span><span class="p">(</span><span class="n">n</span><span class="p">)))</span>
+            <span class="n">yout</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">hilbert</span><span class="p">(</span><span class="n">yout</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="n">n</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="n">axis</span><span class="p">))</span>
+            <span class="n">yout</span> <span class="o">=</span> <span class="n">yout</span><span class="p">[:</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+        <span class="k">if</span> <span class="s1">&#39;n&#39;</span> <span class="ow">in</span> <span class="n">opts</span><span class="p">:</span>
+            <span class="c1"># TODO: call normalize function</span>
+            <span class="n">yout</span> <span class="o">=</span> <span class="n">yout</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">yout</span><span class="p">)</span><span class="o">.</span><span class="n">max</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">()</span>
+        <span class="k">if</span> <span class="s1">&#39;d&#39;</span> <span class="ow">in</span> <span class="n">opts</span><span class="p">:</span>
+            <span class="n">yout</span> <span class="o">=</span> <span class="mi">20</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">yout</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">DataScan</span><span class="p">(</span><span class="n">yout</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DataScan.peaks"><a class="viewcode-back" href="../../index.html#DataScan.DataScan.peaks">[docs]</a>    <span class="k">def</span> <span class="nf">peaks</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">min_dist</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">by_envelop</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        This is a 1D function that can be applied to a multidimensional array along a single</span>
+<span class="sd">        dimension. Finds the peaks by taking its first order difference. By using *threshold* and</span>
+<span class="sd">        *min_dist* parameters, it is possible to reduce the number of detected peaks.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        threshold : float, [0., 1.]</span>
+<span class="sd">            Normalized threshold. Only the peaks with amplitude higher than the</span>
+<span class="sd">            threshold will be detected.</span>
+
+<span class="sd">        min_dist : float</span>
+<span class="sd">            The minimum distance in index units between ech detected peak. The peak with the highest</span>
+<span class="sd">            amplitude is preferred to satisfy this constraint.</span>
+
+<span class="sd">        by_envelop : bool</span>
+<span class="sd">            Compute the peaks of the signal based on its envelop.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        : ndarray</span>
+<span class="sd">            Array containing the indexes of the peaks that were detected</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This method is adapted from the peak detection method in</span>
+<span class="sd">        [PeakUtils](http://pythonhosted.org/PeakUtils/)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">threshold</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">or</span> <span class="n">threshold</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Threshold should be in the range (0.0, 1.0].&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">min_dist</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">min_dist</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">min_dist</span> <span class="o">&lt;=</span> <span class="mf">0.0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;min_dist should be a positive value.&#39;</span><span class="p">)</span>
+
+        <span class="n">axis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_axis_num</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">dims</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+        <span class="n">dims</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">dim_coord</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="c1"># loop over all other dimensions</span>
+        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">product</span><span class="p">(</span><span class="o">*</span><span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">indexes</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">dims</span><span class="p">]):</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sel</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="n">d</span><span class="p">:</span> <span class="n">c</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">dims</span><span class="p">)})</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">operate</span><span class="p">(</span><span class="s1">&#39;ne&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="n">by_envelop</span> <span class="k">else</span> <span class="nb">abs</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">operate</span><span class="p">(</span><span class="s1">&#39;n&#39;</span><span class="p">))</span>
+            <span class="n">dy</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+            <span class="n">peaks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="n">dy</span><span class="p">,</span> <span class="mf">0.</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mf">0.</span><span class="p">)</span>
+                             <span class="o">&amp;</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">([</span><span class="mf">0.</span><span class="p">,</span> <span class="n">dy</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mf">0.</span><span class="p">)</span>
+                             <span class="o">&amp;</span> <span class="p">(</span><span class="n">y</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">))[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">min_dist</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">min_dist</span><span class="o">/</span><span class="n">y</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="n">dim</span><span class="p">])</span>
+
+            <span class="k">if</span> <span class="n">peaks</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">min_dist</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">highest</span> <span class="o">=</span> <span class="n">peaks</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">y</span><span class="p">[</span><span class="n">peaks</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)][::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">rem</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+                <span class="n">rem</span><span class="p">[</span><span class="n">peaks</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+
+                <span class="k">for</span> <span class="n">peak</span> <span class="ow">in</span> <span class="n">highest</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">rem</span><span class="p">[</span><span class="n">peak</span><span class="p">]:</span>
+                        <span class="n">sl</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">peak</span> <span class="o">-</span> <span class="n">min_dist</span><span class="p">),</span> <span class="n">peak</span> <span class="o">+</span> <span class="n">min_dist</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+                        <span class="n">rem</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
+                        <span class="n">rem</span><span class="p">[</span><span class="n">peak</span><span class="p">]</span> <span class="o">=</span> <span class="kc">False</span>
+                <span class="n">peaks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">size</span><span class="p">)[</span><span class="o">~</span><span class="n">rem</span><span class="p">]</span>
+            <span class="n">out</span><span class="o">.</span><span class="n">extend</span><span class="p">([</span><span class="n">c</span><span class="p">[:</span><span class="n">axis</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">dim_coord</span><span class="p">[</span><span class="n">pk</span><span class="p">],)</span> <span class="o">+</span> <span class="n">c</span><span class="p">[</span><span class="n">axis</span><span class="p">:]</span> <span class="k">for</span> <span class="n">pk</span> <span class="ow">in</span> <span class="n">peaks</span><span class="p">])</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+<div class="viewcode-block" id="DataScan.window"><a class="viewcode-back" href="../../index.html#DataScan.DataScan.window">[docs]</a>    <span class="k">def</span> <span class="nf">window</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index1</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">index2</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">win_fcn</span><span class="o">=</span><span class="s1">&#39;boxcar&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Applies a window to the signal within a given time range. Currently only supports 1-D</span>
+<span class="sd">        windows.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        index1 : float or int, optional</span>
+<span class="sd">            The start index/position of the window. Default value is minimum of index.</span>
+
+<span class="sd">        index2 : float or int, optional</span>
+<span class="sd">            The end index/position of the window. Default value is maximum of index.</span>
+
+<span class="sd">        win_fcn : string/float/tuple, optional</span>
+<span class="sd">            The type of window to create. See the function</span>
+<span class="sd">            :func:`scipy.signal.get_window()` for a complete list of</span>
+<span class="sd">            available windows, and how to pass extra parameters for a</span>
+<span class="sd">            specific window function.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Signal:</span>
+<span class="sd">            The windowed Signal signal.</span>
+
+<span class="sd">        Note</span>
+<span class="sd">        ----</span>
+<span class="sd">          If the window requires no parameters, then `win_fcn` can be a string.</span>
+<span class="sd">          If the window requires parameters, then `win_fcn` must be a tuple</span>
+<span class="sd">          with the first argument the string name of the window, and the next</span>
+<span class="sd">          arguments the needed parameters. If `win_fcn` is a floating point</span>
+<span class="sd">          number, it is interpreted as the beta parameter of the kaiser window.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">axis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_axis_num</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">axis_len</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span>
+        <span class="n">wind</span> <span class="o">=</span> <span class="n">DataScan</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">axis_len</span><span class="p">),</span> <span class="n">coords</span><span class="o">=</span><span class="p">[(</span><span class="n">dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim</span><span class="p">])])</span>
+        <span class="n">wind</span><span class="o">.</span><span class="n">loc</span><span class="p">[{</span><span class="n">dim</span><span class="p">:</span> <span class="nb">slice</span><span class="p">(</span><span class="n">index1</span><span class="p">,</span> <span class="n">index2</span><span class="p">)}]</span> <span class="o">=</span> <span class="n">get_window</span><span class="p">(</span><span class="n">win_fcn</span><span class="p">,</span>
+                                                            <span class="nb">len</span><span class="p">(</span><span class="n">wind</span><span class="o">.</span><span class="n">loc</span><span class="p">[{</span><span class="n">dim</span><span class="p">:</span> <span class="nb">slice</span><span class="p">(</span><span class="n">index1</span><span class="p">,</span>
+                                                                                     <span class="n">index2</span><span class="p">)}]))</span>
+        <span class="n">b</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">*</span><span class="n">wind</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+        <span class="n">out</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">b</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+<div class="viewcode-block" id="DataScan.limits"><a class="viewcode-back" href="../../index.html#DataScan.DataScan.limits">[docs]</a>    <span class="k">def</span> <span class="nf">limits</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes the index limits where the signal first goes above a given threshold,</span>
+<span class="sd">        and where it last goes below this threshold. Linear interpolation is used to find the</span>
+<span class="sd">        exact point for this crossing.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        threshold : float, optional, (0.0, 1.0]</span>
+<span class="sd">            Normalized value where the signal first rises above and last falls below. If no value is</span>
+<span class="sd">            specified, the default is the root mean square of the signal.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        start_index, end_index (tuple (2,)):</span>
+<span class="sd">            A two element tuple representing the *start_index* and *end_index* of the signal.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;This method supports only 1-D arrays.&#39;</span><span class="p">)</span>
+        <span class="n">coord</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="k">if</span> <span class="n">threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">threshold</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">std</span><span class="p">()</span><span class="o">.</span><span class="n">values</span>
+        <span class="k">if</span> <span class="n">threshold</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">threshold</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`threshold` should be in the normalized (0.0, 1.0].&quot;</span><span class="p">)</span>
+
+        <span class="n">senv</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">operate</span><span class="p">(</span><span class="s1">&#39;n&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">values</span>
+        <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">senv</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">coord</span><span class="p">[</span><span class="n">ind</span><span class="p">[</span><span class="mi">0</span><span class="p">]],</span> <span class="n">coord</span><span class="p">[</span><span class="n">ind</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span></div>
+
+<div class="viewcode-block" id="DataScan.bandwidth"><a class="viewcode-back" href="../../index.html#DataScan.DataScan.bandwidth">[docs]</a>    <span class="k">def</span> <span class="nf">bandwidth</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nfft</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">smoothing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">win_len</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes the bandwidth of the signal by finding the range of frequencies</span>
+<span class="sd">        where the signal is above a given threshold.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        threshold : float, optional, (0.0, 1.0]</span>
+<span class="sd">            The normalized threshold for which to compute the bandwidth. If this is not</span>
+<span class="sd">            specified, the threshold is set to the root mean square value of the signal.</span>
+
+<span class="sd">        nfft : bool, optional</span>
+<span class="sd">            Since this computation is based on the Fourier transform, indicate the number of</span>
+<span class="sd">            points to be used on computing the FFT.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        bandwidth : float</span>
+<span class="sd">            The total signal bandwidth.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;This method is supported only for 1-D arrays.&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">threshold</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">threshold</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Threshold should be in the range (0.0, 1.0].&quot;</span><span class="p">)</span>
+
+        <span class="n">fdomain</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">ssb</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">nfft</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">smoothing</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">win_len</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># use 2% the size of the signal</span>
+                <span class="n">win_len</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">0.02</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">fdomain</span><span class="p">))</span>
+                <span class="n">win_len</span> <span class="o">=</span> <span class="n">win_len</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">win_len</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">win_len</span>
+            <span class="n">fdomain</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">medfilt</span><span class="p">(</span><span class="n">fdomain</span><span class="p">,</span> <span class="n">win_len</span><span class="p">)</span>
+
+        <span class="n">lims</span> <span class="o">=</span> <span class="n">fdomain</span><span class="o">.</span><span class="n">limits</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">lims</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">lims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span></div>
+
+<div class="viewcode-block" id="DataScan.frequency"><a class="viewcode-back" href="../../index.html#DataScan.DataScan.frequency">[docs]</a>    <span class="k">def</span> <span class="nf">frequency</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">option</span><span class="o">=</span><span class="s1">&#39;center&#39;</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">nfft</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">smoothing</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">win_len</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Computes the center or peak frequency of the signal. Only for 1-D arrays.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        option : str, {&#39;center&#39;, &#39;peak&#39;}</span>
+<span class="sd">            Specify whether to compute the center or peak frequency of the signal.</span>
+
+<span class="sd">        threshold : float, optional, (0.0, 1.0]</span>
+<span class="sd">            Threshold value indicating the noise floor level. Default value is the root mean</span>
+<span class="sd">            square. Only required if option = &#39;center&#39;.</span>
+
+<span class="sd">        nfft : bool, optional</span>
+<span class="sd">            Since this computation is based on the Fourier transform, indicate the number of</span>
+<span class="sd">            points to be used on computing the FFT.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        : float</span>
+<span class="sd">            The value of the center frequency.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;This method supports only 1-D arrays.&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="p">(</span><span class="n">threshold</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span><span class="n">threshold</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">threshold</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Threshold should be in the range (0.0, 1.0].&quot;</span><span class="p">)</span>
+
+        <span class="n">fdomain</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">fft</span><span class="p">(</span><span class="n">ssb</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">nfft</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="n">smoothing</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">win_len</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="c1"># use 2% the size of the signal</span>
+                <span class="n">win_len</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">0.02</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">fdomain</span><span class="p">))</span>
+                <span class="n">win_len</span> <span class="o">=</span> <span class="n">win_len</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">win_len</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">win_len</span>
+            <span class="n">fdomain</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">medfilt</span><span class="p">(</span><span class="n">fdomain</span><span class="p">,</span> <span class="n">win_len</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">option</span> <span class="o">==</span> <span class="s1">&#39;center&#39;</span><span class="p">:</span>
+            <span class="n">minf</span><span class="p">,</span> <span class="n">maxf</span> <span class="o">=</span> <span class="n">fdomain</span><span class="o">.</span><span class="n">limits</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">minf</span><span class="o">+</span><span class="n">maxf</span><span class="p">)</span><span class="o">/</span><span class="mf">2.0</span>
+        <span class="k">if</span> <span class="n">option</span> <span class="o">==</span> <span class="s1">&#39;peak&#39;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]][</span><span class="n">fdomain</span><span class="o">.</span><span class="n">argmax</span><span class="p">()</span><span class="o">.</span><span class="n">values</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;`option` value given is unknown. Supported options: {&quot;center&quot;, &quot;peak&quot;}.&#39;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DataScan.segment"><a class="viewcode-back" href="../../index.html#DataScan.DataScan.segment">[docs]</a>    <span class="k">def</span> <span class="nf">segment</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">pulse_width</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_dist</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">holdoff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                <span class="n">win_fcn</span><span class="o">=</span><span class="s1">&#39;boxcar&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Segments the signal into a collection of signals, with each item in the collection,</span>
+<span class="sd">        representing the signal within a given time window. This is usually useful to</span>
+<span class="sd">        automate the extraction of multiple resolvable echoes.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        threshold : float</span>
+<span class="sd">            A threshold value (in dB). Search for echoes will be only for signal values</span>
+<span class="sd">            above this given threshold. Note that the maximum threshold is 0 dB, since</span>
+<span class="sd">            the signal will be normalized by its maximum before searching for echoes.</span>
+
+<span class="sd">        pulse_width : float</span>
+<span class="sd">            The expected pulse_width. This should have the same units as the units of the Signal</span>
+<span class="sd">            index. If this is not known exactly, it is generally better to specify this</span>
+<span class="sd">            parameter to be slightly larger than the actual pulse_width.</span>
+
+<span class="sd">        min_dist : float</span>
+<span class="sd">            The minimum distance between the peaks of the segmented signals.</span>
+
+<span class="sd">        holdoff : float, optional</span>
+<span class="sd">            The minimum index for which to extract a segment from the signal.</span>
+
+<span class="sd">        win_fcn : string, array_like</span>
+<span class="sd">            The window type that will be used to window each extracted segment (or echo). See</span>
+<span class="sd">            :func:`scipy.signal.get_window()` for a complete list of available windows,</span>
+<span class="sd">            and how to pass extra parameters for a specific window type, if needed.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">            : list</span>
+<span class="sd">            A list with elements of type :class:`Signal`. Each Signal element represents an</span>
+<span class="sd">            extracted segment.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">dim</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">dim</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;dim must be specified if more than one dimension.&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">holdoff</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loc</span><span class="p">[{</span><span class="n">dim</span><span class="p">:</span> <span class="nb">slice</span><span class="p">(</span><span class="n">holdoff</span><span class="p">)}]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">min_dist</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">min_dist</span> <span class="o">=</span> <span class="n">pulse_width</span>
+
+        <span class="n">pks</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">peaks</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">min_dist</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pks</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">()</span>
+        <span class="n">axis</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">get_axis_num</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="c1"># remove segment if its end is over the limit of signal end</span>
+        <span class="n">pks</span> <span class="o">=</span> <span class="p">[</span><span class="n">pk</span> <span class="k">for</span> <span class="n">pk</span> <span class="ow">in</span> <span class="n">pks</span> <span class="k">if</span> <span class="n">pk</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span> <span class="o">+</span> <span class="n">pulse_width</span> <span class="o">&lt;=</span> <span class="n">y</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]]</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">Dataset</span><span class="p">()</span>
+            <span class="c1"># TODO: add coordinate information to the returned dataset</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">pk</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">pks</span><span class="p">):</span>
+                <span class="n">self_slice</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">loc</span><span class="p">[{</span><span class="n">d</span><span class="p">:</span> <span class="n">pk</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="k">for</span> <span class="n">j</span><span class="p">,</span> <span class="n">d</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span> <span class="k">if</span> <span class="n">d</span> <span class="o">!=</span> <span class="n">dim</span><span class="p">}]</span>
+                <span class="n">out</span><span class="p">[</span><span class="s1">&#39;pk_&#39;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)]</span> <span class="o">=</span> <span class="n">self_slice</span><span class="o">.</span><span class="n">window</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">index1</span><span class="o">=</span><span class="n">pk</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span><span class="o">-</span><span class="n">pulse_width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span>
+                                                        <span class="n">index2</span><span class="o">=</span><span class="n">pk</span><span class="p">[</span><span class="n">axis</span><span class="p">]</span><span class="o">+</span><span class="n">pulse_width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span>
+                                                        <span class="n">win_fcn</span><span class="o">=</span><span class="n">win_fcn</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># special handling for cases when signal is 1-D - return DataArray</span>
+            <span class="n">pks</span> <span class="o">=</span> <span class="p">[</span><span class="n">pk</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">pk</span> <span class="ow">in</span> <span class="n">pks</span><span class="p">]</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">DataArray</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="n">axis</span><span class="p">],</span> <span class="nb">len</span><span class="p">(</span><span class="n">pks</span><span class="p">))),</span>
+                               <span class="n">coords</span><span class="o">=</span><span class="p">[(</span><span class="n">dim</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">dim</span><span class="p">]),</span> <span class="p">(</span><span class="s1">&#39;dim2&#39;</span><span class="p">,</span> <span class="n">pks</span><span class="p">)])</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">pks</span><span class="p">:</span>
+                <span class="n">out</span><span class="o">.</span><span class="n">loc</span><span class="p">[{</span><span class="s1">&#39;dim2&#39;</span><span class="p">:</span> <span class="n">p</span><span class="p">}]</span> <span class="o">=</span> <span class="n">y</span><span class="o">.</span><span class="n">window</span><span class="p">(</span><span class="n">dim</span><span class="p">,</span> <span class="n">index1</span><span class="o">=</span><span class="n">p</span><span class="o">-</span><span class="n">pulse_width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span>
+                                                <span class="n">index2</span><span class="o">=</span><span class="n">p</span><span class="o">+</span><span class="n">pulse_width</span><span class="o">/</span><span class="mi">2</span><span class="p">,</span>
+                                                <span class="n">win_fcn</span><span class="o">=</span><span class="n">win_fcn</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+    <span class="c1"># def sparse_pse(self, dim, threshold, fc, pulse_width, overlap=0, nfft=None, win_fcn=&#39;boxcar&#39;):</span>
+    <span class="c1">#     &quot;&quot;&quot;</span>
+    <span class="c1">#     Computes the sparse power spectral estimate</span>
+    <span class="c1">#</span>
+    <span class="c1">#     Parameters</span>
+    <span class="c1">#     ----------</span>
+    <span class="c1">#     fc</span>
+    <span class="c1">#     width</span>
+    <span class="c1">#     overlap</span>
+    <span class="c1">#     nfft</span>
+    <span class="c1">#</span>
+    <span class="c1">#     Returns</span>
+    <span class="c1">#     -------</span>
+    <span class="c1">#</span>
+    <span class="c1">#     &quot;&quot;&quot;</span>
+    <span class="c1">#     echoes = self.segment(dim, threshold=threshold, pulse_width=pulse_width,</span>
+    <span class="c1">#                           min_dist=pulse_width-overlap, win_fcn=win_fcn)</span>
+    <span class="c1">#     out = 0</span>
+    <span class="c1">#     for k in echoes.data_vars:</span>
+    <span class="c1">#         Y = DataScan(echoes[k]).fft(dims=dim, shape=nfft, ssb=True)</span>
+    <span class="c1">#         out += abs(Y).sel(**{dim: fc}, method=&#39;nearest&#39;)**2</span>
+    <span class="c1">#     return out</span>
+
+<div class="viewcode-block" id="DataScan.skew"><a class="viewcode-back" href="../../index.html#DataScan.DataScan.skew">[docs]</a>    <span class="k">def</span> <span class="nf">skew</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">angle</span><span class="p">,</span> <span class="n">dim</span><span class="p">,</span> <span class="n">other_dim</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Applied a skew transformation on the data. Currently, we support skew along a single</span>
+<span class="sd">        dimension only.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        angle : float</span>
+<span class="sd">            The angle to skew the coordinates in degrees.</span>
+
+<span class="sd">        dim : integer, str</span>
+<span class="sd">            The dimension along which to skew.</span>
+
+<span class="sd">        other_dim : integer, str</span>
+<span class="sd">            The second dimension which forms the plane for which to apply the skew.</span>
+<span class="sd">            This argument is optional only for 2-dimensional arrays. Otherwise it should</span>
+<span class="sd">            always be specified.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">other_dim</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;other_dim must be provided if ndim &gt; 2.&#39;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">other_dim</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+            <span class="n">d</span> <span class="o">=</span> <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+            <span class="k">del</span> <span class="n">d</span><span class="p">[</span><span class="n">dim</span><span class="p">]</span>
+            <span class="n">other_dim</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">axis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_axis_num</span><span class="p">(</span><span class="n">dim</span><span class="p">)</span>
+        <span class="n">other_axis</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_axis_num</span><span class="p">(</span><span class="n">other_dim</span><span class="p">)</span>
+        <span class="n">skew_matrix</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ndim</span><span class="p">)</span>
+        <span class="n">skew_matrix</span><span class="p">[</span><span class="n">axis</span><span class="p">,</span> <span class="n">other_axis</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">tan</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">deg2rad</span><span class="p">(</span><span class="n">angle</span><span class="p">))</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_skew_by_matrix</span><span class="p">(</span><span class="n">skew_matrix</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="DataScan.cscan"><a class="viewcode-back" href="../../index.html#DataScan.DataScan.cscan">[docs]</a>    <span class="k">def</span> <span class="nf">cscan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;max&#39;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Specialized method for computing the C-Scans from Ultrasound Testing raster scans. This</span>
+<span class="sd">        collapses the time axis and provides a top view of the scan, along the *x-y* axes.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        theta : float</span>
+<span class="sd">            The angle for which to skew the scan. This should be the wave propagation angle. The</span>
+<span class="sd">            c-scan will be the top view after skew by the given angle.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        cscan : DataScan</span>
+<span class="sd">            The computed C-scan.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">theta</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="s1">&#39;Z&#39;</span><span class="p">)</span>
+
+        <span class="n">dx</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">]</span>
+
+        <span class="c1"># get the skewed coordinates at a single Y-coordinate</span>
+        <span class="n">bscan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="n">bscan_dims</span> <span class="o">=</span> <span class="n">bscan</span><span class="o">.</span><span class="n">dims</span>
+        <span class="n">coords</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">isel</span><span class="p">(</span><span class="n">Y</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">skew</span><span class="p">(</span><span class="n">theta</span><span class="p">,</span> <span class="s1">&#39;X&#39;</span><span class="p">)</span>
+        <span class="n">coords</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">]</span> <span class="o">/=</span> <span class="n">dx</span>
+        <span class="n">coords</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">coords</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">int32</span><span class="p">)</span>
+
+        <span class="n">xmin</span><span class="p">,</span> <span class="n">xmax</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">])</span>
+        <span class="n">nx</span> <span class="o">=</span> <span class="n">xmax</span> <span class="o">-</span> <span class="n">xmin</span> <span class="o">+</span> <span class="mi">1</span>
+
+        <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">sizes</span><span class="p">[</span><span class="s1">&#39;Y&#39;</span><span class="p">],</span> <span class="n">nx</span><span class="p">))</span>
+        <span class="n">new_scan</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">xval</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="n">xmin</span><span class="p">,</span> <span class="n">xmax</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)):</span>
+            <span class="c1"># indx, indz = np.where(coords[&#39;X&#39;] == xval)</span>
+            <span class="n">ind1</span><span class="p">,</span> <span class="n">ind2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">coords</span><span class="p">[</span><span class="s1">&#39;X&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">xval</span><span class="p">)</span>
+            <span class="c1"># out[:, i] = scan.isel_points(X=indx, Z=indz).max(&#39;points&#39;)</span>
+            <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;max&#39;</span><span class="p">:</span>
+                <span class="n">out</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_scan</span><span class="o">.</span><span class="n">isel_points</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="n">bscan_dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">ind1</span><span class="p">,</span> <span class="n">bscan_dims</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="n">ind2</span><span class="p">})</span><span class="o">.</span><span class="n">max</span><span class="p">(</span>
+                    <span class="s1">&#39;points&#39;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;std&#39;</span><span class="p">:</span>
+                <span class="n">out</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">abs</span><span class="p">(</span><span class="n">new_scan</span><span class="o">.</span><span class="n">isel_points</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="n">bscan_dims</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span> <span class="n">ind1</span><span class="p">,</span>
+                                                    <span class="n">bscan_dims</span><span class="p">[</span><span class="mi">1</span><span class="p">]:</span> <span class="n">ind2</span><span class="p">}))</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="s1">&#39;points&#39;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Unknown mode. Only std and max supported.&#39;</span><span class="p">)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">xmin</span><span class="p">,</span> <span class="n">xmax</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">dx</span>
+        <span class="k">return</span> <span class="n">DataScan</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="p">[</span><span class="n">new_scan</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="s1">&#39;Y&#39;</span><span class="p">],</span> <span class="n">x</span><span class="p">],</span> <span class="n">dims</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;Y&#39;</span><span class="p">,</span> <span class="s1">&#39;X&#39;</span><span class="p">])</span></div>
+
+    <span class="k">def</span> <span class="nf">_skew_by_matrix</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">skew_matrix</span><span class="p">,</span> <span class="n">interpolate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">ts</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        A general skew function on all coordinates. This requires knowledge of the skew</span>
+<span class="sd">        coordinates, since the skew matrix must be provided.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        skew_matrix: array_like</span>
+<span class="sd">            The skew matrix used to skew the array. If the :class:`DataScan` has *n* dimensions,</span>
+<span class="sd">            the the skew_matrix must be a *n x n* matrix.</span>
+
+<span class="sd">        interpolate : bool, optional</span>
+<span class="sd">            Specify weather or not to perform interpolation. If :const:`False`, then only the</span>
+<span class="sd">            skewed coordinates are computed and returned.</span>
+
+<span class="sd">        ts : scalar, array_like, optional</span>
+<span class="sd">            Specific the sampling rate for the interpolation. If not specified, sampling rate is</span>
+<span class="sd">            the same as the original axis. If a scalar is given, all the dimensions are sampled</span>
+<span class="sd">            with the same rate. Only required if :obj:`interpolate` is :const:`True`.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        : *skewed_dims</span>
+<span class="sd">            If :obj:`</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># get coordinates as a list</span>
+        <span class="n">coord_vals</span> <span class="o">=</span> <span class="p">[</span><span class="n">v</span><span class="o">.</span><span class="n">values</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">indexes</span><span class="o">.</span><span class="n">items</span><span class="p">()]</span>
+        <span class="n">arrays</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">v</span><span class="o">.</span><span class="n">ravel</span><span class="p">()</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="o">*</span><span class="n">coord_vals</span><span class="p">,</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)])</span>
+
+        <span class="c1"># Apply the transformation matrix</span>
+        <span class="n">skewed_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">skew_matrix</span><span class="p">,</span> <span class="n">arrays</span><span class="p">)</span>
+
+        <span class="c1"># dictionary to hold output coordinates</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">interpolate</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">ts</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">ts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ts</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+            <span class="k">elif</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span> <span class="s1">&#39;__len__&#39;</span><span class="p">):</span>
+                <span class="n">ts</span> <span class="o">=</span> <span class="p">[</span><span class="n">ts</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">ndim</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ts</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ndim</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;ts must have size the same as number of dimensions,&#39;</span>
+                                     <span class="s1">&#39;or it should just be a scalar.&#39;</span><span class="p">)</span>
+
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">coord</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">skewed_coords</span><span class="p">):</span>
+                <span class="n">out</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">[</span><span class="n">i</span><span class="p">]]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">coord</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">coord</span><span class="p">),</span> <span class="n">ts</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+
+            <span class="n">mesh_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">meshgrid</span><span class="p">(</span><span class="o">*</span><span class="nb">list</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">values</span><span class="p">()),</span> <span class="n">indexing</span><span class="o">=</span><span class="s1">&#39;ij&#39;</span><span class="p">)</span>
+            <span class="n">vals</span> <span class="o">=</span> <span class="n">griddata</span><span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">skewed_coords</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">ravel</span><span class="p">(),</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">mesh_coords</span><span class="p">),</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+            <span class="c1"># TODO: fix borders (extrapolation) for nearest neighbor interpolation</span>
+            <span class="k">return</span> <span class="n">DataScan</span><span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">coords</span><span class="o">=</span><span class="n">out</span><span class="p">,</span> <span class="n">dims</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">coord</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="n">skewed_coords</span><span class="p">):</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">coord</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+                <span class="n">out</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">out</span><span class="p">[</span><span class="n">k</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">ts</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+            <span class="k">return</span> <span class="n">out</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">ts</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the mean sampling interval for each coordinate.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="n">OrderedDict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">dims</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">indexes</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">diff</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">coords</span><span class="p">[</span><span class="n">k</span><span class="p">]))</span>
+        <span class="k">return</span> <span class="n">out</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">fs</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Compute the sampling frequency.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">ts</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">out</span><span class="p">:</span>
+            <span class="n">out</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">out</span><span class="p">[</span><span class="n">k</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">DataScan 0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2018, Gerges Dib.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.6.6.
+    </div>
+  </body>
+</html>
