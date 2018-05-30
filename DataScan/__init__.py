@@ -1,1 +1,1 @@
-from src.DataScan.DataScan.scipandas import *
+from .datascan import DataScan

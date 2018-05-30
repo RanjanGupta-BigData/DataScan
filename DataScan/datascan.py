@@ -1,9 +1,8 @@
 from scipy.fftpack import fftn, fftshift, fftfreq
 import xarray as xr
 import numpy as np
-from scipy.signal import hilbert, get_window, medfilt, wiener
+from scipy.signal import hilbert, get_window, medfilt
 from scipy.interpolate import griddata, InterpolatedUnivariateSpline as ius
-from matplotlib import pyplot
 from collections import OrderedDict
 import itertools
 
@@ -513,6 +512,55 @@ class DataScan(xr.DataArray):
         skew_matrix = np.eye(self.ndim)
         skew_matrix[axis, other_axis] = np.tan(np.deg2rad(angle))
         return self._skew_by_matrix(skew_matrix, **kwargs)
+
+    def cscan(self, theta=None, mode='max'):
+        """
+        Specialized method for computing the C-Scans from Ultrasound Testing raster scans. This
+        collapses the time axis and provides a top view of the scan, along the *x-y* axes.
+
+        Parameters
+        ----------
+        theta : float
+            The angle for which to skew the scan. This should be the wave propagation angle. The
+            c-scan will be the top view after skew by the given angle.
+
+        Returns
+        -------
+        : ultron.DataScan
+            The computed C-scan.
+        """
+        if theta is None:
+            return self.max(dim='Z')
+
+        dx = self.ts['X']
+
+        # get the skewed coordinates at a single Y-coordinate
+        bscan = self.isel(Y=0)
+        bscan_dims = bscan.dims
+        coords = self.isel(Y=0).skew(theta, 'X')
+        coords['X'] /= dx
+        coords['X'] = coords['X'].astype(np.int32)
+
+        xmin, xmax = np.min(coords['X']), np.max(coords['X'])
+        nx = xmax - xmin + 1
+
+        out = np.zeros((self.sizes['Y'], nx))
+        new_scan = abs(self)
+
+        for i, xval in enumerate(range(xmin, xmax + 1)):
+            # indx, indz = np.where(coords['X'] == xval)
+            ind1, ind2 = np.where(coords['X'] == xval)
+            # out[:, i] = scan.isel_points(X=indx, Z=indz).max('points')
+            if mode == 'max':
+                out[:, i] = new_scan.isel_points(**{bscan_dims[0]: ind1, bscan_dims[1]: ind2}).max(
+                    'points')
+            elif mode == 'std':
+                out[:, i] = abs(new_scan.isel_points(**{bscan_dims[0]: ind1,
+                                                    bscan_dims[1]: ind2})).std('points')
+            else:
+                raise ValueError('Unknown mode. Only std and max supported.')
+        x = np.arange(xmin, xmax + 1) * dx
+        return DataScan(out, coords=[new_scan.coords['Y'], x], dims=['Y', 'X'])
 
     def _skew_by_matrix(self, skew_matrix, interpolate=False, ts=None, **kwargs):
         """
