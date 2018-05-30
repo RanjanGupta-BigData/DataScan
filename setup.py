@@ -2,12 +2,12 @@
 from setuptools import setup, find_packages
 
 setup(name='DataScan',
-      version='0.1.0',
+      version='0.1',
+      description='A library to handle Ultrasound NDE data.',
+      url='http://github.com/dibgerge/DataScan',
       author='Gerges Dib',
-      author_email='',
       packages=['DataScan'],
-      entry_points={'console_scripts': ['DataScan=DataScan.cli:cli']},
-      install_requires=['numpy', 'pandas', 'xarray'],
-      classifiers=['Programming Language :: Python :: 3.6']
-      )
-
+      install_requires=['scipy>=1',
+                        'xarray>=0.10',
+                        'numpy>=1.14'],
+      zip_safe=False)
