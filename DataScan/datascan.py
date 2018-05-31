@@ -5,6 +5,7 @@ from scipy.signal import hilbert, get_window, medfilt
 from scipy.interpolate import griddata, InterpolatedUnivariateSpline as ius
 from collections import OrderedDict
 import itertools
+from matplotlib import pyplot
 
 
 class DataScan(xr.DataArray):
@@ -152,7 +153,7 @@ class DataScan(xr.DataArray):
             # TODO: call normalize function
             yout = yout/np.abs(yout).max().max()
         if 'd' in opts:
-            yout = 20*np.log10(np.abs(yout))
+            yout = 20*np.log10(np.abs(yout) + 1e-10)
         return DataScan(yout, coords=self.coords)
 
     def peaks(self, dim, threshold=0.1, min_dist=None, by_envelop=False):
@@ -507,6 +508,7 @@ class DataScan(xr.DataArray):
             d = dict.fromkeys(self.dims)
             del d[dim]
             other_dim = list(d.keys())[0]
+
         axis = self.get_axis_num(dim)
         other_axis = self.get_axis_num(other_dim)
         skew_matrix = np.eye(self.ndim)
@@ -540,7 +542,6 @@ class DataScan(xr.DataArray):
         coords = self.isel(Y=0).skew(theta, 'X')
         coords['X'] /= dx
         coords['X'] = coords['X'].astype(np.int32)
-
         xmin, xmax = np.min(coords['X']), np.max(coords['X'])
         nx = xmax - xmin + 1
 
@@ -550,10 +551,14 @@ class DataScan(xr.DataArray):
         for i, xval in enumerate(range(xmin, xmax + 1)):
             # indx, indz = np.where(coords['X'] == xval)
             ind1, ind2 = np.where(coords['X'] == xval)
+            if len(ind1) == 0 or len(ind2) == 0:
+                out[:, i] = out[:, i-1]
+                continue
+            # print(ind1, ind2)
             # out[:, i] = scan.isel_points(X=indx, Z=indz).max('points')
             if mode == 'max':
-                out[:, i] = new_scan.isel_points(**{bscan_dims[0]: ind1, bscan_dims[1]: ind2}).max(
-                    'points')
+                out[:, i] = new_scan.isel_points(
+                    **{bscan_dims[0]: ind1, bscan_dims[1]: ind2}).max('points')
             elif mode == 'std':
                 out[:, i] = abs(new_scan.isel_points(**{bscan_dims[0]: ind1,
                                                     bscan_dims[1]: ind2})).std('points')
